@@ -23,6 +23,4 @@ public class ScheduledTasks {
 	public void completeOpenQuizAnswers() {
 		statementService.completeOpenQuizAnswers();
 	}
-
-
 }

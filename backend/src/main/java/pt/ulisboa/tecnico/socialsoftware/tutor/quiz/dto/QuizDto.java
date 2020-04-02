@@ -33,7 +33,7 @@ public class QuizDto implements Serializable {
     @Transient
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    public QuizDto(){
+    public QuizDto() {
     }
 
     public QuizDto(Quiz quiz, boolean deepCopy) {

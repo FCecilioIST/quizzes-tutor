@@ -246,6 +246,4 @@ public class QuizService {
 
         return latexExport.export(quiz);
     }
-
-
 }

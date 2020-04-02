@@ -1,9 +1,12 @@
 package pt.ulisboa.tecnico.socialsoftware.tutor.answer.domain;
 
+import pt.ulisboa.tecnico.socialsoftware.tutor.exceptions.TutorException;
 import pt.ulisboa.tecnico.socialsoftware.tutor.question.domain.Option;
 import pt.ulisboa.tecnico.socialsoftware.tutor.quiz.domain.QuizQuestion;
 
 import javax.persistence.*;
+
+import static pt.ulisboa.tecnico.socialsoftware.tutor.exceptions.ErrorMessage.INVALID_SEQUENCE_FOR_QUESTION_ANSWER;
 
 @Entity
 @Table(name = "question_answers")
@@ -32,38 +35,18 @@ public class QuestionAnswer {
     public QuestionAnswer() {
     }
 
-    public QuestionAnswer(QuizAnswer quizAnswer, QuizQuestion quizQuestion, Integer timeTaken, Option option, int sequence){
-        this.timeTaken = timeTaken;
-        this.quizAnswer = quizAnswer;
-        quizAnswer.addQuestionAnswer(this);
-        this.quizQuestion = quizQuestion;
-        quizQuestion.addQuestionAnswer(this);
-        this.option = option;
-        if (option != null) {
-            option.addQuestionAnswer(this);
-        }
-        this.sequence = sequence;
+    public QuestionAnswer(QuizAnswer quizAnswer, QuizQuestion quizQuestion, Integer timeTaken, Option option, int sequence) {
+        setTimeTaken(timeTaken);
+        setQuizAnswer(quizAnswer);
+        setQuizQuestion(quizQuestion);
+        setOption(option);
+        setSequence(sequence);
     }
 
-    public QuestionAnswer(QuizAnswer quizAnswer, QuizQuestion quizQuestion, int sequence){
-        this.quizAnswer = quizAnswer;
-        quizAnswer.addQuestionAnswer(this);
-        this.quizQuestion = quizQuestion;
-        quizQuestion.addQuestionAnswer(this);
-        this.sequence = sequence;
-    }
-
-    public void remove() {
-        quizAnswer.getQuestionAnswers().remove(this);
-        quizAnswer = null;
-
-        quizQuestion.getQuestionAnswers().remove(this);
-        quizQuestion = null;
-
-        if (option != null) {
-            option.getQuestionAnswers().remove(this);
-            option = null;
-        }
+    public QuestionAnswer(QuizAnswer quizAnswer, QuizQuestion quizQuestion, int sequence) {
+        setQuizAnswer(quizAnswer);
+        setQuizQuestion(quizQuestion);
+        setSequence(sequence);
     }
 
     public Integer getId() {
@@ -78,14 +61,13 @@ public class QuestionAnswer {
         this.timeTaken = timeTaken;
     }
 
-
-
     public QuizQuestion getQuizQuestion() {
         return quizQuestion;
     }
 
     public void setQuizQuestion(QuizQuestion quizQuestion) {
         this.quizQuestion = quizQuestion;
+        quizQuestion.addQuestionAnswer(this);
     }
 
     public QuizAnswer getQuizAnswer() {
@@ -94,6 +76,7 @@ public class QuestionAnswer {
 
     public void setQuizAnswer(QuizAnswer quizAnswer) {
         this.quizAnswer = quizAnswer;
+        quizAnswer.addQuestionAnswer(this);
     }
 
     public Option getOption() {
@@ -102,6 +85,9 @@ public class QuestionAnswer {
 
     public void setOption(Option option) {
         this.option = option;
+
+        if (option != null)
+            option.addQuestionAnswer(this);
     }
 
     public Integer getSequence() {
@@ -109,6 +95,9 @@ public class QuestionAnswer {
     }
 
     public void setSequence(Integer sequence) {
+        if (sequence == null || sequence < 0)
+            throw new TutorException(INVALID_SEQUENCE_FOR_QUESTION_ANSWER);
+
         this.sequence = sequence;
     }
 
@@ -123,5 +112,18 @@ public class QuestionAnswer {
 
     public boolean isCorrect() {
         return getOption() != null && getOption().getCorrect();
+    }
+
+    public void remove() {
+        quizAnswer.getQuestionAnswers().remove(this);
+        quizAnswer = null;
+
+        quizQuestion.getQuestionAnswers().remove(this);
+        quizQuestion = null;
+
+        if (option != null) {
+            option.getQuestionAnswers().remove(this);
+            option = null;
+        }
     }
 }

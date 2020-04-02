@@ -13,7 +13,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import pt.ulisboa.tecnico.socialsoftware.tutor.impexp.ImpExpService;
 
-
 @PropertySource({ "classpath:application.properties" })
 @EnableJpaRepositories
 @EnableTransactionManagement

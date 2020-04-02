@@ -79,8 +79,9 @@ class GetAvailableQuizzesTest extends Specification {
 
         question = new Question()
         question.setKey(1)
+        question.setTitle("Question Title")
+        question.setContent("Question Content")
         question.setCourse(course)
-        course.addQuestion(question)
 
         quiz = new Quiz()
         quiz.setKey(1)
@@ -91,10 +92,7 @@ class GetAvailableQuizzesTest extends Specification {
 
         quizQuestion = new QuizQuestion()
         quizQuestion.setSequence(1)
-
-        quiz.addQuizQuestion(quizQuestion)
         quizQuestion.setQuiz(quiz)
-        question.addQuizQuestion(quizQuestion)
         quizQuestion.setQuestion(question)
 
         userRepository.save(user)
@@ -200,5 +198,4 @@ class GetAvailableQuizzesTest extends Specification {
             return new QuizService()
         }
     }
-
 }

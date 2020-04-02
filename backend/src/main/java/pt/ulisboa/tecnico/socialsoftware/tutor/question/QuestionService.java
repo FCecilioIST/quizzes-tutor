@@ -185,6 +185,5 @@ public class QuestionService {
 
         return latexExporter.export(questionRepository.findAll());
     }
-
 }
 

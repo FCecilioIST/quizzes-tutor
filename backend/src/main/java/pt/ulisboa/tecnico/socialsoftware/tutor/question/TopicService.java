@@ -94,7 +94,6 @@ public class TopicService {
         topicRepository.delete(topic);
     }
 
-
     @Retryable(
       value = { SQLException.class },
       backoff = @Backoff(delay = 5000))
@@ -105,7 +104,6 @@ public class TopicService {
         return xmlExport.export(topicRepository.findAll());
     }
 
-
     @Retryable(
       value = { SQLException.class },
       backoff = @Backoff(delay = 5000))
@@ -115,6 +113,5 @@ public class TopicService {
 
         xmlImporter.importTopics(topicsXML, this, questionService, courseRepository);
     }
-
 }
 

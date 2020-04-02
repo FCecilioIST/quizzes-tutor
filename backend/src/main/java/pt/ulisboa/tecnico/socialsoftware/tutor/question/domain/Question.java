@@ -23,7 +23,6 @@ import static pt.ulisboa.tecnico.socialsoftware.tutor.exceptions.ErrorMessage.*;
                 @Index(name = "question_indx_0", columnList = "key")
         })
 public class Question implements DomainEntity {
-    @SuppressWarnings("unused")
     public enum Status {
         DISABLED, REMOVED, AVAILABLE
     }
@@ -37,6 +36,7 @@ public class Question implements DomainEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(nullable = false)
     private String title;
 
     @Column(name = "number_of_answers", columnDefinition = "integer default 0")
@@ -71,29 +71,16 @@ public class Question implements DomainEntity {
     }
 
     public Question(Course course, QuestionDto questionDto) {
-        checkConsistentQuestion(questionDto);
-        this.title = questionDto.getTitle();
-        this.key = questionDto.getKey();
-        this.content = questionDto.getContent();
-        this.status = Status.valueOf(questionDto.getStatus());
-        this.creationDate = LocalDateTime.parse(questionDto.getCreationDate(), Course.formatter);
+        setTitle(questionDto.getTitle());
+        setKey(questionDto.getKey());
+        setContent(questionDto.getContent());
+        setStatus(Status.valueOf(questionDto.getStatus()));
+        setCreationDate(LocalDateTime.parse(questionDto.getCreationDate(), Course.formatter));
+        setCourse(course);
+        setOptions(questionDto.getOptions());
 
-        this.course = course;
-        course.addQuestion(this);
-
-        if (questionDto.getImage() != null) {
-            Image img = new Image(questionDto.getImage());
-            setImage(img);
-            img.setQuestion(this);
-        }
-
-        int index = 0;
-        for (OptionDto optionDto : questionDto.getOptions()) {
-            optionDto.setSequence(index++);
-            Option option = new Option(optionDto);
-            this.options.add(option);
-            option.setQuestion(this);
-        }
+        if (questionDto.getImage() != null)
+            setImage(new Image(questionDto.getImage()));
     }
 
     @Override
@@ -112,22 +99,6 @@ public class Question implements DomainEntity {
         return key;
     }
 
-    private void generateKeys() {
-        Integer max = this.course.getQuestions().stream()
-                .filter(question -> question.key != null)
-                .map(Question::getKey)
-                .max(Comparator.comparing(Integer::valueOf))
-                .orElse(0);
-
-        List<Question> nullKeyQuestions = this.course.getQuestions().stream()
-            .filter(question -> question.key == null).collect(Collectors.toList());
-
-        for (Question question: nullKeyQuestions) {
-                max = max + 1;
-                question.key = max;
-        }
-    }
-
    public void setKey(Integer key) {
         this.key = key;
     }
@@ -137,6 +108,9 @@ public class Question implements DomainEntity {
     }
 
     public void setContent(String content) {
+        if (content == null || content.isBlank())
+            throw new TutorException(INVALID_CONTENT_FOR_QUESTION);
+
         this.content = content;
     }
 
@@ -150,6 +124,33 @@ public class Question implements DomainEntity {
 
     public List<Option> getOptions() {
         return options;
+    }
+
+    public void setOptions(List<OptionDto> options) {
+        if (options.stream().filter(OptionDto::getCorrect).count() != 1) {
+            throw new TutorException(QUESTION_MULTIPLE_CORRECT_OPTIONS);
+        }
+
+        int index = 0;
+        for (OptionDto optionDto : options) {
+            if (optionDto.getId() == null) {
+                optionDto.setSequence(index++);
+                addOption(new Option(optionDto));
+            } else {
+                Option option = getOptions()
+                        .stream()
+                        .filter(op -> op.getId().equals(optionDto.getId()))
+                        .findFirst()
+                        .orElseThrow(() -> new TutorException(OPTION_NOT_FOUND, optionDto.getId()));
+
+                option.setContent(optionDto.getContent());
+                option.setCorrect(optionDto.getCorrect());
+            }
+        }
+    }
+
+    public void addOption(Option option) {
+        options.add(option);
     }
 
     public Image getImage() {
@@ -166,11 +167,9 @@ public class Question implements DomainEntity {
     }
 
     public void setTitle(String title) {
+        if (title == null || title.isBlank())
+            throw new TutorException(INVALID_TITLE_FOR_QUESTION);
         this.title = title;
-    }
-
-    public Set<QuizQuestion> getQuizQuestions() {
-        return quizQuestions;
     }
 
     public Integer getNumberOfAnswers() {
@@ -189,10 +188,6 @@ public class Question implements DomainEntity {
         this.numberOfCorrect = numberOfCorrect;
     }
 
-    public Set<Topic> getTopics() {
-        return topics;
-    }
-
     public LocalDateTime getCreationDate() {
         return creationDate;
     }
@@ -201,32 +196,30 @@ public class Question implements DomainEntity {
         this.creationDate = creationDate;
     }
 
-    public Course getCourse() {
-        return course;
-    }
-
-    public void setCourse(Course course) {
-        this.course = course;
-    }
-
-    public void addOption(Option option) {
-        options.add(option);
+    public Set<QuizQuestion> getQuizQuestions() {
+        return quizQuestions;
     }
 
     public void addQuizQuestion(QuizQuestion quizQuestion) {
         quizQuestions.add(quizQuestion);
     }
 
-    public void addTopic(Topic topic) {
-        topics.add(topic);
+    public Set<Topic> getTopics() {
+        return topics;
     }
 
-    public void remove() {
-        canRemove();
-        getCourse().getQuestions().remove(this);
-        course = null;
-        getTopics().forEach(topic -> topic.getQuestions().remove(this));
-        getTopics().clear();
+    public void addTopic(Topic topic) {
+        topics.add(topic);
+        topic.getQuestions().add(this);
+    }
+
+    public Course getCourse() {
+        return course;
+    }
+
+    public void setCourse(Course course) {
+        this.course = course;
+        course.addQuestion(this);
     }
 
     @Override
@@ -245,6 +238,30 @@ public class Question implements DomainEntity {
                 '}';
     }
 
+    public void remove() {
+        canRemove();
+        getCourse().getQuestions().remove(this);
+        course = null;
+        getTopics().forEach(topic -> topic.getQuestions().remove(this));
+        getTopics().clear();
+    }
+
+    private void generateKeys() {
+        Integer max = this.course.getQuestions().stream()
+                .filter(question -> question.key != null)
+                .map(Question::getKey)
+                .max(Comparator.comparing(Integer::valueOf))
+                .orElse(0);
+
+        List<Question> nullKeyQuestions = this.course.getQuestions().stream()
+                .filter(question -> question.key == null).collect(Collectors.toList());
+
+        for (Question question: nullKeyQuestions) {
+            max = max + 1;
+            question.key = max;
+        }
+    }
+
     public Integer getCorrectOptionId() {
         return this.getOptions().stream()
                 .filter(Option::getCorrect)
@@ -260,7 +277,6 @@ public class Question implements DomainEntity {
         }
     }
 
-
     public Integer getDifficulty() {
         if (numberOfAnswers == 0) {
             return null;
@@ -270,39 +286,9 @@ public class Question implements DomainEntity {
     }
 
     public void update(QuestionDto questionDto) {
-        checkConsistentQuestion(questionDto);
-
         setTitle(questionDto.getTitle());
         setContent(questionDto.getContent());
-
-        questionDto.getOptions().forEach(optionDto -> {
-            Option option = getOptionById(optionDto.getId());
-            if (option == null) {
-                throw new TutorException(OPTION_NOT_FOUND, optionDto.getId());
-            }
-            option.setContent(optionDto.getContent());
-            option.setCorrect(optionDto.getCorrect());
-        });
-    }
-
-    private void checkConsistentQuestion(QuestionDto questionDto) {
-        if (questionDto.getTitle() == null || questionDto.getTitle().trim().length() == 0 ||
-                questionDto.getContent().trim().length() == 0 ||
-                questionDto.getOptions().stream().anyMatch(optionDto -> optionDto.getContent().trim().length() == 0)) {
-            throw new TutorException(QUESTION_MISSING_DATA);
-        }
-
-        if (questionDto.getOptions().stream().filter(OptionDto::getCorrect).count() != 1) {
-            throw new TutorException(QUESTION_MULTIPLE_CORRECT_OPTIONS);
-        }
-
-        if (!questionDto.getOptions().stream().filter(OptionDto::getCorrect).findAny()
-                .equals(getOptions().stream().filter(Option::getCorrect).findAny().map(OptionDto::new))
-                && getQuizQuestions().stream().flatMap(quizQuestion -> quizQuestion.getQuestionAnswers().stream())
-                .findAny().isPresent()) {
-            throw new TutorException(QUESTION_CHANGE_CORRECT_OPTION_HAS_ANSWERS);
-        }
-
+        setOptions(questionDto.getOptions());
     }
 
     public void updateTopics(Set<Topic> newTopics) {
@@ -313,26 +299,12 @@ public class Question implements DomainEntity {
             topic.getQuestions().remove(this);
         });
 
-        newTopics.stream().filter(topic -> !this.topics.contains(topic)).forEach(topic -> {
-            this.topics.add(topic);
-            topic.getQuestions().add(this);
-        });
-    }
-
-    private Option getOptionById(Integer id) {
-        return getOptions().stream().filter(option -> option.getId().equals(id)).findAny().orElse(null);
+        newTopics.stream().filter(topic -> !this.topics.contains(topic)).forEach(this::addTopic);
     }
 
     private void canRemove() {
         if (!getQuizQuestions().isEmpty()) {
             throw new TutorException(QUESTION_IS_USED_IN_QUIZ, getQuizQuestions().iterator().next().getQuiz().getTitle());
-        }
-    }
-
-    public void setOptionsSequence() {
-        int index = 0;
-        for (Option option: getOptions()) {
-            option.setSequence(index++);
         }
     }
 

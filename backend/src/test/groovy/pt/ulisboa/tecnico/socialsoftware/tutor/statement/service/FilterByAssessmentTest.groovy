@@ -169,7 +169,6 @@ class FilterByAssessmentTest extends Specification {
         result.contains(questionTopic1Again)
     }
 
-
     @TestConfiguration
     static class StatementServiceImplTestContextConfiguration {
 
@@ -192,5 +191,4 @@ class FilterByAssessmentTest extends Specification {
             return new AnswersXmlImport()
         }
     }
-
 }
